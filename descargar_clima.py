@@ -23,16 +23,14 @@ PASS = os.environ.get("FC_PASS")
 # Station ID for ECOWITT
 ESTACIONES = ["364053"]
 
-# Export types to download
+# Export types corresponding to the interface views
 EXPORT_TYPES = {
-    "daily": "Export Daily",
-    "weekly": "Export Weekly"
+    "daily": "Daily",
+    "weekly": "Weekly"
 }
 
 def convertir_xls_a_formatos(xls_path, est_id, export_type):
-    """Convierte el archivo SpreadsheetML XML (.xls) de FieldClimate a CSV y XLSX.
-    El nombre del archivo resultante incorpora el tipo de export (daily/weekly).
-    """
+    """Convierte el archivo SpreadsheetML XML (.xls) de Ecowitt a CSV y XLSX."""
     try:
         tree = ET.parse(xls_path)
         root = tree.getroot()
@@ -70,9 +68,8 @@ def convertir_xls_a_formatos(xls_path, est_id, export_type):
                 headers.append(f"Col_{i}")
 
         df = pd.DataFrame(rows[2:], columns=headers)
-        # Convert numeric columns
         for col in df.columns:
-            if col != 'Fecha / Hora':
+            if col != 'Fecha / Hora' and col != 'Time':
                 try:
                     df[col] = pd.to_numeric(df[col])
                 except Exception:
@@ -90,29 +87,25 @@ def convertir_xls_a_formatos(xls_path, est_id, export_type):
         return []
 
 def calcular_estadisticas(csv_path, est_id, export_type):
-    """Calcula max/min de temperatura, humedad y presión en las últimas 24h.
-    Guarda los resultados en JSON llamado stats_<est_id>_<type>.json.
-    """
+    """Calcula max/min de temperatura, humedad y presión en las últimas 24h."""
     try:
         df = pd.read_csv(csv_path)
-        # Asumir que hay una columna de fecha/hora llamada 'Fecha / Hora' o similar
         date_col = None
-        for possible in ['Fecha / Hora', 'Date/Time', 'Timestamp']:
+        for possible in ['Fecha / Hora', 'Date/Time', 'Timestamp', 'Time']:
             if possible in df.columns:
                 date_col = possible
                 break
         if not date_col:
             print(f"No se encontró columna de fecha en {csv_path}")
             return
-        df[date_col] = pd.to_datetime(df[date_col])
+        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
         now = pd.Timestamp.now()
         last_24h = df[(df[date_col] >= now - pd.Timedelta(hours=24))]
         if last_24h.empty:
             print(f"No hay datos de las últimas 24h en {csv_path}")
             return
         stats = {}
-        # Seleccionar columnas típicas; ignorar si no existen
-        for metric in ['Temperatura', 'Temp', 'Temperature', 'Humedad', 'Humidity', 'Presión', 'Pressure', 'Pressure (hPa)']:
+        for metric in ['Temperature(°C)', 'Temperatura', 'Temp', 'Humidity(%)', 'Humedad', 'Pressure(hPa)', 'Presión']:
             if metric in last_24h.columns:
                 stats[metric] = {
                     'max': float(last_24h[metric].max()),
@@ -144,50 +137,68 @@ def run():
         )
         page = context.new_page()
 
-        # Login en ECOWITT (página de FieldClimate no aplica, usar URL de ECOWITT)
         print("1. Accediendo a la página de login de ECOWITT...")
-        page.goto("https://www.ecowitt.net/auth/login", wait_until="commit", timeout=45000)
-        page.wait_for_selector("input[type='email']", timeout=90000)
-        page.locator("input[type='email']").first.fill(USER)
+        page.goto("https://www.ecowitt.net/auth/login", wait_until="networkidle", timeout=60000)
+        
+        # Selectores genéricos alternativos por si el input de email cambia de atributo
+        page.wait_for_selector("input[type='text'], input[type='email']", timeout=60000)
+        
+        # Llenar usuario y contraseña usando selectores robustos
+        page.locator("input[type='text'], input[type='email']").first.fill(USER)
         page.locator("input[type='password']").first.fill(PASS)
-        page.locator("button:has-text('Sign In')").first.click()
+        
+        # Click en botón de inicio de sesión
+        page.locator("button:has-text('Sign In'), button[type='submit']").first.click()
         page.wait_for_url(lambda u: "auth/login" not in u, timeout=45000)
         print(f"Sesión iniciada correctamente. URL actual: {page.url}")
-        time.sleep(2)
+        time.sleep(3)
 
         archivos_generados = []
         for est_id in ESTACIONES:
             station_url = f"https://www.ecowitt.net/home/index?id={est_id}"
             print(f"\n--- Procesando Estación {est_id} ---")
             print(f"Navegando a: {station_url}")
-            page.goto(station_url, wait_until="commit", timeout=45000)
-            for export_key, button_text in EXPORT_TYPES.items():
+            page.goto(station_url, wait_until="networkidle", timeout=60000)
+            time.sleep(5)  # Esperar a que carguen los componentes de la estación
+
+            for export_key, view_name in EXPORT_TYPES.items():
                 try:
-                    print(f"Esperando botón '{button_text}'...")
-                    btn = page.wait_for_selector(f"button:has-text('{button_text}')", timeout=35000)
-                    time.sleep(1)
+                    print(f"Cambiando a la vista '{view_name}'...")
+                    # Intentar hacer clic en el botón de vista (Daily / Weekly) si existe
+                    view_btn = page.locator(f"div, button", has_text=view_name)
+                    for candidate in view_btn.all():
+                        if candidate.inner_text().strip() == view_name:
+                            candidate.click()
+                            break
+                    time.sleep(3)
+
+                    print(f"Buscando botón 'Export' para {export_key}...")
+                    btn_export = page.wait_for_selector("button:has-text('Export')", timeout=20000)
+                    
                     with page.expect_download(timeout=30000) as download_info:
-                        btn.click()
+                        btn_export.click()
+                    
                     download = download_info.value
                     xls_filename = f"{est_id}_{export_key}_station_data.xls"
                     download.save_as(xls_filename)
                     archivos_generados.append(xls_filename)
                     print(f"Archivo XLS descargado: {xls_filename} ({os.path.getsize(xls_filename):,} bytes)")
-                    # Conversión y estadísticas
+                    
                     formatos_extra = convertir_xls_a_formatos(xls_filename, est_id, export_key)
                     archivos_generados.extend(formatos_extra)
-                    # Calcular estadísticas a partir del CSV generado
+                    
                     csv_path = f"{est_id}_{export_key}_station_data.csv"
                     stats_path = calcular_estadisticas(csv_path, est_id, export_key)
                     if stats_path:
                         archivos_generados.append(stats_path)
                 except Exception as e:
                     print(f"Error al procesar export '{export_key}' para estación {est_id}: {e}")
+                    # Tomar captura de pantalla para depuración si falla
+                    page.screenshot(path=f"error_{est_id}_{export_key}.png")
                     continue
 
         browser.close()
 
-        # Git commit if repository present
         if archivos_generados and os.path.exists('.git'):
             print("\nActualizando repositorio Git...")
             try:
