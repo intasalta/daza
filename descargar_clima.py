@@ -110,7 +110,6 @@ def run():
             ]
         )
         
-        # Verificar si existe el archivo de autorización generado previamente
         storage_state = "auth.json" if os.path.exists("auth.json") else None
         if not storage_state:
             raise FileNotFoundError("No se encontró el archivo 'auth.json'. Generalo localmente primero.")
@@ -118,7 +117,7 @@ def run():
         context = browser.new_context(
             viewport={"width": 1920, "height": 1080},
             accept_downloads=True,
-            storage_state=storage_state,  # <--- Inyecta las cookies de sesión automáticamente
+            storage_state=storage_state,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
         page = context.new_page()
@@ -139,33 +138,20 @@ def run():
 
             for export_key, view_name in EXPORT_TYPES.items():
                 try:
-                    print(f"\n--- Procesando vista: '{view_name}' ({export_key}) ---")
-                    
-                    # Intentar encontrar y hacer clic en la pestaña de la vista de forma más precisa
-                    # Buscamos elementos que contengan exactamente el nombre de la vista (Daily o Weekly)
-                    tab_selectors = [
-                        f"text={view_name}",
-                        f"button:has-text('{view_name}')",
-                        f"div.el-radio-button__inner:has-text('{view_name}')",
-                        f"span:has-text('{view_name}')"
-                    ]
-                    
+                    print(f"Cambiando a la vista '{view_name}'...")
+                    view_btn = page.locator("div, button", has_text=view_name)
                     clicked = False
-                    for selector in tab_selectors:
-                        try:
-                            elem = page.locator(selector).first
-                            if await elem.is_visible(timeout=3000):
-                                await elem.click()
-                                clicked = True
-                                print(f"  -> Clic realizado en la vista {view_name} usando selector: {selector}")
-                                break
-                        except Exception:
-                            continue
+                    for candidate in view_btn.all():
+                        if candidate.inner_text().strip() == view_name:
+                            candidate.click()
+                            clicked = True
+                            break
                     
                     if not clicked:
-                        print(f"  -> Advertencia: No se pudo hacer clic directamente en {view_name}, intentando continuar...")
+                        print(f"Aviso: No se encontró el botón de vista para {view_name}")
+                        continue
 
-                    time.sleep(4) # Pausa para que la tabla recargue los datos del rango seleccionado
+                    time.sleep(4)  # Espera síncrona a que carguen los datos de la vista
 
                     print(f"Buscando botón 'Export' para {export_key}...")
                     btn_export = page.wait_for_selector("button:has-text('Export')", timeout=20000)
@@ -177,7 +163,7 @@ def run():
                     xls_filename = f"{est_id}_{export_key}_station_data.xls"
                     download.save_as(xls_filename)
                     archivos_generados.append(xls_filename)
-                    print(f"  -> Archivo descargado con éxito: {xls_filename}")
+                    print(f"  -> Archivo descargado: {xls_filename}")
                     
                     formatos_extra = convertir_xls_a_formatos(xls_filename, est_id, export_key)
                     archivos_generados.extend(formatos_extra)
@@ -186,7 +172,6 @@ def run():
                     stats_path = calcular_estadisticas(csv_path, est_id, export_key)
                     if stats_path:
                         archivos_generados.append(stats_path)
-                        
                 except Exception as e:
                     print(f"Error al procesar export '{export_key}' para estación {est_id}: {e}")
                     page.screenshot(path=f"error_{est_id}_{export_key}.png")
