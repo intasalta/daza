@@ -139,19 +139,25 @@ def run():
             for export_key, view_name in EXPORT_TYPES.items():
                 try:
                     print(f"Cambiando a la vista '{view_name}'...")
-                    view_btn = page.locator("div, button", has_text=view_name)
+                    
+                    # Búsqueda robusta y flexible del botón de vista
+                    candidates = page.locator(f"text={view_name}").all()
                     clicked = False
-                    for candidate in view_btn.all():
-                        if candidate.inner_text().strip() == view_name:
-                            candidate.click()
-                            clicked = True
-                            break
+                    for candidate in candidates:
+                        try:
+                            text_val = candidate.inner_text().strip()
+                            if view_name.lower() in text_val.lower():
+                                candidate.click()
+                                clicked = True
+                                break
+                        except Exception:
+                            continue
                     
                     if not clicked:
-                        print(f"Aviso: No se encontró el botón de vista para {view_name}")
+                        print(f"Aviso: No se pudo hacer clic en la vista {view_name}")
                         continue
 
-                    time.sleep(4)  # Espera síncrona a que carguen los datos de la vista
+                    time.sleep(5) # Espera prudente para que carguen los datos de la vista seleccionada
 
                     print(f"Buscando botón 'Export' para {export_key}...")
                     btn_export = page.wait_for_selector("button:has-text('Export')", timeout=20000)
