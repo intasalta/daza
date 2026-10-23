@@ -1,4 +1,4 @@
-name: Actualizar Datos FieldClimate
+name: Actualizar Datos DAZA
 
 on:
   schedule:
@@ -28,9 +28,12 @@ jobs:
         env:
           FC_USER: ${{ secrets.FC_USER }}
           FC_PASS: ${{ secrets.FC_PASS }}
-        run: |
-          python descargar_clima.py
-          
+        
+        - name: Ejecutar descarga diaria
+        run: python descargar_diario.py
+
+      - name: Ejecutar descarga semanal
+        run: python descargar_semanal.py
       - name: Subir captura de error si falla
         uses: actions/upload-artifact@v4
         if: failure()
