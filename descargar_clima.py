@@ -7,9 +7,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-USER = os.environ.get("FC_USER")
-PASS = os.environ.get("FC_PASS")
-
 ESTACIONES = ["364053"]
 EXPORT_TYPES = {
     "daily": "Daily",
@@ -101,12 +98,9 @@ def calcular_estadisticas(csv_path, est_id, export_type):
         return
 
 def run():
-    if not USER or not PASS:
-        raise ValueError("Error: Las variables de entorno FC_USER y FC_PASS deben estar definidas.")
-    print(f"Iniciando descarga para el usuario: {USER}")
+    print("Iniciando descarga utilizando sesión guardada (auth.json)...")
 
     with sync_playwright() as p:
-        # Usar un agente de usuario realista para evitar bloqueos por parte de Ecowitt/Cloudflare
         browser = p.chromium.launch(
             headless=True,
             args=[
@@ -115,48 +109,33 @@ def run():
                 "--disable-setuid-sandbox"
             ]
         )
+        
+        # Verificar si existe el archivo de autorización generado previamente
+        storage_state = "auth.json" if os.path.exists("auth.json") else None
+        if not storage_state:
+            raise FileNotFoundError("No se encontró el archivo 'auth.json'. Generalo localmente primero.")
+
         context = browser.new_context(
             viewport={"width": 1920, "height": 1080},
             accept_downloads=True,
+            storage_state=storage_state,  # <--- Inyecta las cookies de sesión automáticamente
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
         page = context.new_page()
-
-        try:
-            print("1. Accediendo a la página de login de ECOWITT...")
-            page.goto("https://www.ecowitt.net/auth/login", wait_until="domcontentloaded", timeout=60000)
-            
-            # Esperar a que el contenedor principal de la app o los inputs aparezcan
-            # En Ecowitt los inputs suelen tener placeholders como 'Email' o 'Username'
-            page.wait_for_selector("input", timeout=60000)
-            time.sleep(3) # Pausa breve para hidratación de JS
-
-            # Intentar rellenar los campos buscando por atributos comunes en Ecowitt
-            email_input = page.locator("input[type='text'], input[type='email'], input.el-input__inner").first
-            pass_input = page.locator("input[type='password']").first
-
-            email_input.fill(USER)
-            pass_input.fill(PASS)
-
-            # Botón de login
-            login_btn = page.locator("button:has-text('Sign In'), button:has-text('Login'), button.el-button--primary").first
-            login_btn.click()
-
-            page.wait_for_url(lambda u: "auth/login" not in u, timeout=45000)
-            print(f"Sesión iniciada correctamente. URL actual: {page.url}")
-            time.sleep(3)
-
-        except Exception as login_err:
-            print(f"Error durante el login: {login_err}")
-            page.screenshot(path="error_login.png")
-            raise login_err
 
         archivos_generados = []
         for est_id in ESTACIONES:
             station_url = f"https://www.ecowitt.net/home/index?id={est_id}"
             print(f"\n--- Procesando Estación {est_id} ---")
-            page.goto(station_url, wait_until="networkidle", timeout=60000)
-            time.sleep(5)
+            print(f"Navegando directamente a: {station_url}")
+            
+            try:
+                page.goto(station_url, wait_until="networkidle", timeout=60000)
+                time.sleep(5)
+            except Exception as nav_err:
+                print(f"Error al navegar a la estación (posible sesión expirada): {nav_err}")
+                page.screenshot(path=f"error_nav_{est_id}.png")
+                continue
 
             for export_key, view_name in EXPORT_TYPES.items():
                 try:
@@ -178,6 +157,7 @@ def run():
                     xls_filename = f"{est_id}_{export_key}_station_data.xls"
                     download.save_as(xls_filename)
                     archivos_generados.append(xls_filename)
+                    print(f"  -> Archivo descargado: {xls_filename}")
                     
                     formatos_extra = convertir_xls_a_formatos(xls_filename, est_id, export_key)
                     archivos_generados.extend(formatos_extra)
