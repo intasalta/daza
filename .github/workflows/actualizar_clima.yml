@@ -48,6 +48,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git add *_station_data.* stats_*.json
+          git add *_station_data.* 2>/dev/null || true
+          git add stats_*.json 2>/dev/null || true
           git commit -m "Actualización automática de estaciones meteorológicas [skip ci]" || echo "No hay cambios para commitear"
           git push
