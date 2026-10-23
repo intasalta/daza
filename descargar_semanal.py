@@ -4,21 +4,17 @@ import subprocess
 import xml.etree.ElementTree as ET
 import pandas as pd
 from playwright.sync_api import sync_playwright
-import re
 
 ESTACIONES = ["364053"]
 
 def convertir_xls_a_formatos(xls_path, est_id, export_type):
     try:
-        # Los archivos exportados de Ecowitt pueden ser XML Spreadsheet o XLSX de Excel
         with open(xls_path, "rb") as f:
             header_bytes = f.read(4)
         
-        # Si es un archivo XLSX real (formato ZIP/OpenXML)
         if header_bytes.startswith(b'PK\x03\x04'):
             df = pd.read_excel(xls_path)
         else:
-            # Formato XML antiguo de Ecowitt
             tree = ET.parse(xls_path)
             root = tree.getroot()
             ns = {'ss': 'urn:schemas-microsoft-com:office:spreadsheet'}
@@ -95,16 +91,23 @@ def run():
             page.goto(station_url, wait_until="networkidle", timeout=60000)
             time.sleep(5)
 
-            # 1. Abrir el menú desplegable haciendo clic en la vista actual (ej. 'Daily')
+            # 1. Abrir el menú desplegable buscando el texto 'Daily' y haciendo clic mediante JS si es necesario
             print("Abriendo selector de vistas...")
-            page.locator("div").filter(has_text=re.compile(r"^(Daily|Weekly|Monthly|Yearly|24 Hours)$")).first.click()
-            time.sleep(2)
-
-            # 2. Hacer clic en la opción 'Weekly' dentro del menú desplegable
-            print("Seleccionando la opción 'Weekly'...")
-            page.get_by_text("Weekly", exact=True).click()
+            try:
+                page.get_by_text("Daily", exact=True).first.click(timeout=10000)
+            except Exception:
+                page.evaluate("() => { const el = [...document.querySelectorAll('*')].find(e => e.textContent.trim() === 'Daily'); if(el) el.click(); }")
             
-            # 3. Pausa prudente para que la interfaz cargue los datos semanales
+            time.sleep(3)
+
+            # 2. Hacer clic en la opción 'Weekly' del menú desplegado
+            print("Seleccionando la opción 'Weekly'...")
+            try:
+                page.get_by_text("Weekly", exact=True).click(timeout=10000)
+            except Exception:
+                page.evaluate("() => { const el = [...document.querySelectorAll('*')].find(e => e.textContent.trim() === 'Weekly'); if(el) el.click(); }")
+            
+            # 3. Pausa prudente para que la plataforma cargue los datos semanales
             time.sleep(8)
 
             # 4. Buscar y hacer clic en el botón 'Export'
@@ -118,7 +121,7 @@ def run():
             xls_filename = f"{est_id}_weekly_station_data.xls"
             download.save_as(xls_filename)
             archivos_generados.append(xls_filename)
-            print(f"  -> Archivo semanal descargado: {xls_filename}")
+            print(f"  -> Archivo semanal descargado con éxito: {xls_filename}")
             
             archivos_generados.extend(convertir_xls_a_formatos(xls_filename, est_id, "weekly"))
 
