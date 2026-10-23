@@ -24,6 +24,12 @@ jobs:
           pip install playwright pandas openpyxl
           playwright install chromium
 
+      - name: Configurar Git y actualizar repositorio
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git pull --rebase || true
+
       - name: Ejecutar descarga diaria
         run: python descargar_diario.py
 
@@ -41,10 +47,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git pull --rebase
           git add *_station_data.* stats_*.json
           git commit -m "Actualización automática de estaciones meteorológicas [skip ci]" || echo "No hay cambios para commitear"
           git push
