@@ -138,26 +138,29 @@ def run():
 
             for export_key, view_name in EXPORT_TYPES.items():
                 try:
-                    print(f"Cambiando a la vista '{view_name}'...")
+                    print(f"\nCambiando a la vista '{view_name}'...")
                     
-                    # Búsqueda robusta y flexible del botón de vista
-                    candidates = page.locator(f"text={view_name}").all()
+                    # Si es Daily, muchas veces viene por defecto, pero aseguramos el click
+                    # Buscamos botones o elementos interactivos que contengan exactamente el texto de la vista
+                    btn_view = page.locator(f"button:has-text('{view_name}'), a:has-text('{view_name}'), div:has-text('{view_name}')")
+                    
                     clicked = False
-                    for candidate in candidates:
+                    for candidate in btn_view.all():
                         try:
-                            text_val = candidate.inner_text().strip()
-                            if view_name.lower() in text_val.lower():
+                            if candidate.is_visible() and candidate.inner_text().strip() == view_name:
                                 candidate.click()
                                 clicked = True
+                                print(f"  -> Clic realizado en la vista {view_name}")
                                 break
                         except Exception:
                             continue
-                    
-                    if not clicked:
-                        print(f"Aviso: No se pudo hacer clic en la vista {view_name}")
-                        continue
 
-                    time.sleep(5) # Espera prudente para que carguen los datos de la vista seleccionada
+                    if not clicked:
+                        # Intento alternativo por selector de texto general si el estricto falla
+                        page.get_by_text(view_name, exact=True).first.click()
+                    
+                    # Pausa importante para que la interfaz cargue los datos del periodo seleccionado
+                    time.sleep(6)
 
                     print(f"Buscando botón 'Export' para {export_key}...")
                     btn_export = page.wait_for_selector("button:has-text('Export')", timeout=20000)
@@ -169,7 +172,7 @@ def run():
                     xls_filename = f"{est_id}_{export_key}_station_data.xls"
                     download.save_as(xls_filename)
                     archivos_generados.append(xls_filename)
-                    print(f"  -> Archivo descargado: {xls_filename}")
+                    print(f"  -> Archivo descargado con éxito: {xls_filename}")
                     
                     formatos_extra = convertir_xls_a_formatos(xls_filename, est_id, export_key)
                     archivos_generados.extend(formatos_extra)
