@@ -1,0 +1,52 @@
+name: Actualizar Datos FieldClimate
+
+on:
+  schedule:
+    - cron: '10,40 * * * *'
+  workflow_dispatch:
+
+jobs:
+  descargar-datos:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Copiar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias
+        run: |
+          pip install playwright pandas openpyxl
+          playwright install chromium
+
+      - name: Ejecutar script de descarga
+        env:
+          FC_USER: ${{ secrets.FC_USER }}
+          FC_PASS: ${{ secrets.FC_PASS }}
+        run: |
+          python descargar_clima.py
+          
+      - name: Subir captura de error si falla
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screenshots-error
+          path: error_*.png
+          
+      - name: Guardar cambios en el repositorio
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          # Esto configura la URL con el token automático para que el push tenga permisos
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git pull --rebase
+          git add *_station_data.*
+          git commit -m "Actualización automática de estaciones meteorológicas (.xls, .csv, .xlsx) [skip ci]" || echo "No hay cambios para commitear"
+          git push
