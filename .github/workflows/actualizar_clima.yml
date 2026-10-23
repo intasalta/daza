@@ -24,32 +24,27 @@ jobs:
           pip install playwright pandas openpyxl
           playwright install chromium
 
-      - name: Ejecutar script de descarga
-        env:
-          FC_USER: ${{ secrets.FC_USER }}
-          FC_PASS: ${{ secrets.FC_PASS }}
-        
-        - name: Ejecutar descarga diaria
+      - name: Ejecutar descarga diaria
         run: python descargar_diario.py
 
       - name: Ejecutar descarga semanal
         run: python descargar_semanal.py
+
       - name: Subir captura de error si falla
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: screenshots-error
           path: error_*.png
-          
+
       - name: Guardar cambios en el repositorio
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-          # Esto configura la URL con el token automático para que el push tenga permisos
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git pull --rebase
-          git add *_station_data.*
-          git commit -m "Actualización automática de estaciones meteorológicas (.xls, .csv, .xlsx) [skip ci]" || echo "No hay cambios para commitear"
+          git add *_station_data.* stats_*.json
+          git commit -m "Actualización automática de estaciones meteorológicas [skip ci]" || echo "No hay cambios para commitear"
           git push
