@@ -1,8 +1,9 @@
-name: Actualizar Datos DAZA
+name: Actualizar Datos Ecowitt (Modo Rápido Directo)
 
 on:
   schedule:
-    - cron: '10,40 * * * *'
+    # Se ejecuta cada 15 minutos automáticamente
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,7 +12,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Copiar repositorio
+      - name: Clonar repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Python
@@ -19,35 +20,22 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias ligeras (Sin navegadores ni Playwright)
         run: |
-          pip install playwright pandas openpyxl
-          playwright install chromium
+          pip install pandas openpyxl
 
-      - name: Configurar Git y actualizar repositorio
+      - name: Descargar datos directamente desde Ecowitt (Enlace público sin login)
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git pull --rebase || true
-
-      - name: Ejecutar descarga diaria
-        run: python descargar_diario.py
-
-     
-
-      - name: Subir captura de error si falla
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: screenshots-error
-          path: error_*.png
-
-      - name: Guardar cambios en el repositorio
+          python descargar_share.py
+          
+      - name: Guardar y sincronizar cambios en GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git add *_station_data.* 2>/dev/null || true
-          git add stats_*.json 2>/dev/null || true
-          git commit -m "Actualización automática de estaciones meteorológicas [skip ci]" || echo "No hay cambios para commitear"
+          git pull --rebase
+          git add *_station_data.*
+          git commit -m "Actualización ultra-rápida de datos climáticos (.xls, .csv, .xlsx) [skip ci]" || echo "No hay cambios para commitear"
           git push
