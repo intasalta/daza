@@ -35,7 +35,11 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git pull --rebase
+          
+          # Primero agregamos los archivos descargados y commiteamos
           git add *_station_data.*
-          git commit -m "Actualización ultra-rápida de datos climáticos (.xls, .csv, .xlsx) [skip ci]" || echo "No hay cambios para commitear"
-          git push
+          git commit -m "Actualización automática de datos climáticos (.xls, .csv, .xlsx) [skip ci]" || echo "No hay cambios para commitear"
+          
+          # Luego sincronizamos con rebase y enviamos
+          git pull --rebase --autostash origin main || git pull --rebase origin main || true
+          git push origin main
