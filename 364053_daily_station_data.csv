@@ -1,3 +1,6 @@
 ﻿Time,Outdoor,,,,,Solar and UVI,,Rainfall,,,,,,,,Wind,,,,Pressure,
 ,Temperature(℃),Feels Like(℃),Dew Point(℃),Humidity(%),VPD(kPa),Solar(W/m²),UVI,Rain Rate(mm/hr),Daily(mm),Event(mm),Hourly(mm),24 Hours(mm),Weekly(mm),Monthly(mm),Yearly(mm),Wind Speed(km/h),Wind Gust(km/h),Wind Direction(º),10-minute Average Wind Direction(º),Relative(hPa),Absolute(hPa)
 2026-10-28 00:00,19.9,19.9,12.2,61,0.908,0,0,0,0,0,0,-,0,2.8,2.8,0,0,55,-,1026.7,884
+2026-10-28 00:05,19.9,19.9,12.2,61,0.908,0,0,0,0,0,0,-,0,2.8,2.8,0,0,55,-,1026.7,884
+2026-10-28 00:10,19.9,19.9,12.2,61,0.908,0,0,0,0,0,0,-,0,2.8,2.8,0,0,55,-,1026.5,883.8
+2026-10-28 00:15,19.9,19.9,12.2,61,0.908,0,0,0,0,0,0,-,0,2.8,2.8,0,0,55,-,1026.5,883.8
