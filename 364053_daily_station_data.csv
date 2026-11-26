@@ -2,3 +2,6 @@
 Time,Temperature(℃),Feels Like(℃),Dew Point(℃),Humidity(%),VPD(kPa),Solar(W/m²),UVI,Rain Rate(mm/hr),Daily(mm),Event(mm),Hourly(mm),24 Hours(mm),Weekly(mm),Monthly(mm),Yearly(mm),Wind Speed(km/h),Wind Gust(km/h),Wind Direction(º),10-minute Average Wind Direction(º),Relative(hPa),Absolute(hPa)
 2026-11-26 00:00,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,1024.3,935.8
 2026-11-26 00:05,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,1024.3,935.8
+2026-11-26 00:10,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,1024.3,935.8
+2026-11-26 00:15,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,1024.3,935.8
+2026-11-26 00:20,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,1024.1,935.6
